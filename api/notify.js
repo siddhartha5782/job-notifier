@@ -1,6 +1,4 @@
-export const config = {
-    schedule: '* * * * *' // Replace with GitHub Actions later
-  };
+
   
   const nodemailer = require('nodemailer');
   
