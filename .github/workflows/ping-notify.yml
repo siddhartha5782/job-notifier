@@ -2,7 +2,7 @@ name: Ping Vercel API Every 20 Minutes
 
 on:
   schedule:
-    - cron: '*/20 * * * *'  # Every 5 minutes
+    - cron: '0 * * * *'  # Every 5 minutes
   workflow_dispatch:        # Allows manual run from GitHub UI
 
 jobs:
