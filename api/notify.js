@@ -103,13 +103,13 @@ async function sendEmail(subject, html) {
       pass: process.env.GMAIL_PASS
     }
   });
-
+  const recipients = process.env.TO_EMAILS.split(',').map(e => e.trim());
   await transporter.sendMail({
     from: `"JobBot" <${process.env.GMAIL_USER}>`,
-    to: process.env.TO_EMAIL,
+    recipients,
     subject,
     html
   });
 
-  console.log('✅ Email sent:', subject);
+  console.log('✅ Email sent:', recipients);
 }
