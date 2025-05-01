@@ -8,19 +8,22 @@ export default async function handler(req, res) {
     const dayStart = new Date(today.setHours(0, 0, 0, 0)).getTime() / 1000;
     const dayEnd = dayStart + 86400;
 
-    const [markdownJobs, jsonJobs] = await Promise.all([
+    const [markdownJobs, jsonJobs, softwareJobs] = await Promise.all([
       fetchJobrightMarkdown(formattedTextDate),
-      fetchSimplifyJSON(dayStart, dayEnd)
+      fetchSimplifyJSON(dayStart, dayEnd),
+      fetchJobrightSoftwareMarkdown(formattedTextDate)
     ]);
+    const hasJobs = markdownJobs.length || jsonJobs.length || softwareJobs.length;
 
-    const html = buildEmailHTML(markdownJobs, jsonJobs, formattedTextDate);
-    if (markdownJobs.length === 0 && jsonJobs.length === 0) {
+    if (!hasJobs) {
       console.log('✅ No listings found for today.');
       return res.status(200).send('No listings for today.');
     }
 
+    const html = buildEmailHTML(markdownJobs, jsonJobs, softwareJobs, formattedTextDate);
     await sendEmail(`📬 ${formattedTextDate} Job Listings`, html);
     return res.status(200).send('Email sent.');
+
   } catch (err) {
     console.error('❌ Job email failed:', err);
     return res.status(500).send('Job processing failed.');
@@ -29,6 +32,26 @@ export default async function handler(req, res) {
 
 async function fetchJobrightMarkdown(dateStr) {
   const url = 'https://raw.githubusercontent.com/jobright-ai/2025-Data-Analysis-Internship/master/README.md';
+  const res = await fetch(url);
+  const md = await res.text();
+
+  const tableStart = md.indexOf('| Company | Job Title');
+  const tableEnd = md.indexOf('<!--', tableStart);
+  const rows = md.slice(tableStart, tableEnd).trim().split('\n').slice(2); // skip headers
+
+  return rows
+    .map(r => r.split('|').map(x => x.trim()))
+    .filter(cols => cols.length >= 6 && cols[5] === dateStr)
+    .map(cols => ({
+      company: cols[1].replace(/\*\*|\[|\]\(.*?\)/g, '').trim(),
+      title: (cols[2].match(/\[(.*?)\]/) || [])[1] || cols[2],
+      url: (cols[2].match(/\((.*?)\)/) || [])[1] || '',
+      location: cols[3],
+      model: cols[4]
+    }));
+}
+async function fetchJobrightSoftwareMarkdown(dateStr) {
+  const url = 'https://raw.githubusercontent.com/jobright-ai/2025-Software-Engineer-Internship/master/README.md';
   const res = await fetch(url);
   const md = await res.text();
 
@@ -63,7 +86,7 @@ async function fetchSimplifyJSON(from, to) {
   }));
 }
 
-function buildEmailHTML(jobright, simplify, dateStr) {
+function buildEmailHTML(jobright, simplify, software, dateStr) {
   const section = (title, rows) => `
     <h3>${title}</h3>
     <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: Arial;">
@@ -82,8 +105,9 @@ function buildEmailHTML(jobright, simplify, dateStr) {
     </table><br/>`;
 
   const htmlParts = [];
-  if (jobright.length > 0) htmlParts.push(section('📘 Jobright.ai', jobright));
+  if (jobright.length > 0) htmlParts.push(section('📘 Jobright.ai - Data Analysis', jobright));
   if (simplify.length > 0) htmlParts.push(section('📗 SimplifyJobs', simplify));
+  if (software.length > 0) htmlParts.push(section('📘 Jobright.ai - Software Engineering', software));
   if (htmlParts.length === 0) return '<p>No job listings posted today.</p>';
 
   return `
@@ -94,6 +118,7 @@ function buildEmailHTML(jobright, simplify, dateStr) {
     </div>
   `;
 }
+
 
 async function sendEmail(subject, html) {
   const transporter = nodemailer.createTransport({
