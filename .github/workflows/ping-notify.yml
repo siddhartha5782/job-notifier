@@ -11,4 +11,4 @@ jobs:
     steps:
       - name: Call Job Notifier API
         run: |
-          curl -s https://job-notifier-mu.vercel.app/api/notify
+          curl -s https://job-notifier-khaki.vercel.app/api/notify
