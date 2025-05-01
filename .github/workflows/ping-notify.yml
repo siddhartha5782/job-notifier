@@ -1,4 +1,4 @@
-name: Ping Vercel API Every 5 Minutes
+name: Ping Vercel API Every 20 Minutes
 
 on:
   schedule:
